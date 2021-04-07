@@ -14,9 +14,11 @@ resource "aws_vpc" "avantvpc"  {
   }
 }
 
+/*
 resource "aws_key_pair" "VirginiaKeyPair" {
   key_name = "VirginiaKeyPair"
 }
+*/
 
 resource "aws_subnet" "primarySubnet" {
   vpc_id = aws_vpc.avantvpc.id
@@ -52,14 +54,6 @@ resource "aws_route_table" "routeTable" {
 
   route {
     cidr_block = "10.0.0/24"
-    //gateway_id = aws_vpc.avantvpc.gateway_id
-
-    gateway_id = aws_internet_gateway.mainGateway.id
-    #gateway_id = aws.internet
-  }
-
-  route {
-    cidr_block = "10.0.1.0/24"
     gateway_id = aws_internet_gateway.mainGateway.id
   }
 
@@ -67,6 +61,16 @@ resource "aws_route_table" "routeTable" {
     name = "avanticaRouteTable"
     purpose = "Serv vpc subnets routing : us-east-1a, us-east-1b"
   }
+}
 
+resource "aws_route_table_association" "primarySubnetAssocition" {
+  subnet_id = aws_subnet.primarySubnet.id 
+  gateway_id = aws_internet_gateway.mainGateway.id
+  route_table_id = aws_route_table.routeTable.id
+}
 
+resource "aws_route_table_association" "secondarySubnetAssociation" {
+  subnet_id = aws_subnet.secondarySubnet.id
+  gateway_id = aws_internet_gateway.mainGateway.id
+  route_table_id = aws_route_table.routeTable.id
 }
