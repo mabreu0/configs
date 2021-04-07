@@ -14,6 +14,29 @@ resource "aws_vpc" "avantvpc"  {
   }
 }
 
+resource "aws_security_group" "tomcatVisibility" {
+  name = "tomcatVisibility"
+  description = "Expose 8080 in the local networks"
+
+  ingress {
+    from_port = 8080
+    to_port = 8080
+    protocol = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.1.0/24"]
+  }
+
+  egress {
+    from_port = 0
+    to_port = 65535
+    protocol = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.1.0/24"]
+  }
+
+  tags = {
+    purpose = "Expose application request and application response from any ASG instance launched"
+  }
+}
+
 /*
 resource "aws_key_pair" "VirginiaKeyPair" {
   key_name = "VirginiaKeyPair"
@@ -54,12 +77,20 @@ resource "aws_route_table" "routeTable" {
 
   route {
     cidr_block = "10.0.0/24"
-    gateway_id = aws_internet_gateway.mainGateway.id
   }
+
+  route {
+    cidr_block = "10.1.0/24"
+  }
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.mainGateway.id
+  }  
 
   tags = {
     name = "avanticaRouteTable"
-    purpose = "Serv vpc subnets routing : us-east-1a, us-east-1b"
+    purpose = "Serv vpc subnets routing : us-east-1a, us-east-1b / internet"
   }
 }
 
@@ -73,4 +104,42 @@ resource "aws_route_table_association" "secondarySubnetAssociation" {
   subnet_id = aws_subnet.secondarySubnet.id
   gateway_id = aws_internet_gateway.mainGateway.id
   route_table_id = aws_route_table.routeTable.id
+}
+
+resource "aws_lb" "avanticaLoadBalancer" {
+  name = "avanticaLoadBalancer"
+  load_balancer_type = "application"
+  internal = false
+  enable_deletion_protection = false
+  
+  security_groups = [aws_security_group.LBVisibility.id]
+  subnets = [aws_subnet.primarySubnet.id, aws_subnet.secondarySubnet.id]
+
+  tags = {
+    balancedZones = "us-east-1a,us-est-1b"
+    targets = "instances"
+    regions = "us-east"
+  }
+}
+  
+resource "aws_security_group" "LBVisibility" {
+  name = "LBVisibility"
+
+  ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.1.0/24"]
+  }
+
+  egress {
+    from_port = 0
+    to_port = 65535
+    protocol = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.1.0/24"]
+  }
+
+  tags = {
+    purpose = "Expose port 80 avanticaLoadBalancer for internet comunication"
+  }
 }
